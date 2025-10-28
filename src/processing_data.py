@@ -1,4 +1,4 @@
-"""Throught the script we will make data augmentation and image processing such as greyscaling, reshaping and normalization
+"""Throught the script we will make data augmentation and image processing such as greyscaling, reshaping and normalization,  
 in order to store the data into a numpy array with the X = image matrice and Y = label (emotion)"""
 
 import os
@@ -6,44 +6,76 @@ import random
 import cv2
 import numpy as np
 from typing import Dict, List
-
+import pickle
 
 
 def get_image_path(input_folder_path : os.PathLike) -> Dict[str, List[str]]:
     """Create a dictionnary with the label as key and List with the asociated path file as value
     example : {"sadness" :  [data/train\\surprise\\Training_98899707.jpg,..]}" """
 
-    files_dict = {"": []}
+    files_dict = {}
     folders = [f for f in os.listdir(input_folder_path) if os.path.isdir(os.path.join(input_folder_path, f))]
 
     for folder in folders:
         folder_path = os.path.join(input_folder_path, folder)
-        files_dict[folder] = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
+        files_dict[folder] = [os.path.join(folder_path, f) for f in \
+                              os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
    
     return files_dict
          
 
 ##Data augmentation because surprise and disgust are too low samples 
 ## surprise : 3171, disgust : 436 so we will make few operation too increase their number to 4000 for both of them
-def increase_data(dictionnary_path: Dict[str, List[str]]):
-    """Iterate throught the dictionnary and add more image for the surprise and disgust label"""
-    
-    minor_classes = ["surprise"] #"disgust"]
-    target_sizes = {"disgust": 4000, "surprise": 4000} ## limite of the samples we want
-    ## None key is for when we want the combination of many transformation (check apply and save parameter)
-    transformations = {rotation_image : "_rotated", translation_image : "_translated",
-                      increase_brightness: "_bright", image_flip: "_flipped"}
-    
+def increase_data(dictionnary_path: Dict[str, List[str]]) -> Dict[str, List[str]]:
+    """Iterate through the dictionary and add more images for the surprise and disgust labels
+       Returns the updated dictionary including augmented images.
+    """
+    minor_classes = ["surprise", "disgust"]
+    target_sizes = {"surprise": 4000, "disgust": 4000}
+    transformations = {
+        rotation_image: "_rotated",
+        translation_image: "_translated",
+        increase_brightness: "_bright",
+        image_flip: "_flipped"
+    }
+
+    original_images = {classe: dictionnary_path[classe].copy() for classe in minor_classes}
+
     for classe in minor_classes:
-        while len(dictionnary_path[classe]) < target_sizes[classe]:
-            for path_image in dictionnary_path[classe].copy():
+        dictionnary_images_augmented = []
+        total_images = len(dictionnary_path[classe])
+
+
+        while total_images < target_sizes[classe]:
+            for i, path_image in enumerate(original_images[classe]):
+                if total_images >= target_sizes[classe]:
+                    break
+
                 img = cv2.imread(path_image)
+                ## all the simple transformations
                 for func, suffix in transformations.items():
-                    if len(dictionnary_path[classe]) >= target_sizes[classe]:
+                    if total_images >= target_sizes[classe]:
                         break
-                    image, path_save = apply_and_save(func, img, path_image, suffix)
-                    apply_and_save(None, img, path_image, "_combo", True)
-                    dictionnary_path[classe].append(path_save)
+
+                    new_image, path_save = apply_and_save(func, img, path_image, suffix)
+                    dictionnary_images_augmented.append(path_save)
+                    total_images += 1
+
+                ## application of combination of transformation
+                if total_images < target_sizes[classe]:
+                    new_image, path_save = apply_and_save(None, img, path_image, "_combo", combination=True)
+                    dictionnary_images_augmented.append(path_save)
+                    total_images += 1
+
+        
+        dictionnary_path[classe].extend(dictionnary_images_augmented)
+
+    ## verif
+    for classe in minor_classes:
+        for _ in dictionnary_path: 
+            assert len(dictionnary_path[classe]) >= 4000, f"Not enought image for {classe} : {dictionnary_path[classe]}"
+
+    return dictionnary_path
 
               
 def apply_and_save(transformation_func, image, path_image, extension, combination=False):
@@ -106,7 +138,7 @@ def increase_brightness(image: np.ndarray) -> np.ndarray:
     return bright_image
 
 def image_flip(image: np.ndarray) -> np.ndarray:
-    "Reverse an image like a mirror"
+    "Invert an image like a mirror"
 
     flipped_image = cv2.flip(image, 1)
     return flipped_image
@@ -127,20 +159,51 @@ def build_new_path(path_image : os.PathLike, extension: str) -> os.PathLike:
     return new_path 
 
 
-
-    
-def greyscaling():
+## Apply operations on the images in order to make sure they will fit our model 
+def preprocess_images(dictionnary_path : Dict[str, List[str]]):
     """"""
-def resizing():
-    """Every picture is suppose to be 48x48 pxl, we verify if not we rezise"""
+    X = []
+    y = []
 
-def normalization():
+    for sentiment, image_list in dictionnary_path.items():
+        for image_path in image_list:  
+            image = cv2.imread(image_path) 
+            grey_image = greyscaling(image)
+            resize_image = resizing(grey_image)
+            normalized_image = normalization(resize_image)
+            X.append(normalized_image)
+            y.append(sentiment)
+
+    return np.array(X), np.array(y)
+
+
+def greyscaling(image : np.ndarray):
+    """Image is already in grey but has 3 canals, so we only want 2-d dimensional matrixe"""
+    return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+def resizing(image: np.ndarray):
+    """Make sur every image 48x48 pxl, if not resize"""
+    if image.shape[:2] != (48,48):
+        return cv2.resize(image, (48,48))
+    else:
+        return image
+
+def normalization(image: np.ndarray):
     """"""
+    return (image / 255.0).astype(np.float32)
+
+def save_arrays(X, y, filename="data/arrays.pkl"):
+    with open(filename, "wb") as f:
+        pickle.dump((X, y), f)
 
 
 def main():
+
     dico = get_image_path("data/train")
-    increase_data(dico)
+    complete_dico = increase_data(dico)
+    X_array, y_array = preprocess_images(complete_dico)
+    save_arrays(X_array, y_array)
+
 
 
 if __name__ == "__main__":
