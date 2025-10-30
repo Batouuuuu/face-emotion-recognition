@@ -5,8 +5,10 @@ import os
 import random
 import cv2
 import numpy as np
-from typing import Dict, List
+from typing import Dict, List, Tuple
 import pickle
+
+
 
 
 def get_image_path(input_folder_path : os.PathLike) -> Dict[str, List[str]]:
@@ -159,9 +161,10 @@ def build_new_path(path_image : os.PathLike, extension: str) -> os.PathLike:
     return new_path 
 
 
-## Apply operations on the images in order to make sure they will fit our model 
-def preprocess_images(dictionnary_path : Dict[str, List[str]]):
-    """"""
+
+def preprocess_images(dictionnary_path : Dict[str, List[str]]) -> Tuple[np.ndarray, np.ndarray]:
+    """Apply operations (greysclaling, resizing, normalisation
+      on the images in order to make sure they will fit our model """
     X = []
     y = []
 
@@ -177,32 +180,38 @@ def preprocess_images(dictionnary_path : Dict[str, List[str]]):
     return np.array(X), np.array(y)
 
 
-def greyscaling(image : np.ndarray):
-    """Image is already in grey but has 3 canals, so we only want 2-d dimensional matrixe"""
+def greyscaling(image : np.ndarray) -> np.ndarray:
+    """Image is already in grey but has 3 canals, we only want 2-d dimensional matrix"""
     return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-def resizing(image: np.ndarray):
+def resizing(image: np.ndarray) -> np.ndarray:
     """Make sur every image 48x48 pxl, if not resize"""
     if image.shape[:2] != (48,48):
         return cv2.resize(image, (48,48))
     else:
         return image
 
-def normalization(image: np.ndarray):
-    """"""
+def normalization(image: np.ndarray) -> np.ndarray:
+    """Return the matrix with number between 0 and 1 to reduce their weight"""
     return (image / 255.0).astype(np.float32)
 
-def save_arrays(X, y, filename="data/arrays.pkl"):
-    with open(filename, "wb") as f:
+def save_arrays(X: np.ndarray, y: np.ndarray, output_file: os.PathLike) -> None:
+    with open(output_file, "wb") as f:
         pickle.dump((X, y), f)
 
 
 def main():
 
-    dico = get_image_path("data/train")
-    complete_dico = increase_data(dico)
-    X_array, y_array = preprocess_images(complete_dico)
-    save_arrays(X_array, y_array)
+    ##train_set
+    train_images_path = get_image_path("data/train")
+    complete_dico = increase_data(train_images_path)
+    X_train_array, y_train_array = preprocess_images(complete_dico)
+    save_arrays(X_train_array, y_train_array, "data/train_arrays.pkl")
+
+    ##test_set
+    test_images_path = get_image_path("data/test")
+    X_test_array, y_test_array = preprocess_images(test_images_path)
+    save_arrays(X_test_array, y_test_array, "data/test_arrays.pkl")
 
 
 
