@@ -4,11 +4,9 @@ in order to store the data into a numpy array with the X = image matrice and Y =
 import os
 import random
 import cv2
+import pickle
 import numpy as np
 from typing import Dict, List, Tuple
-import pickle
-
-
 
 
 def get_image_path(input_folder_path : os.PathLike) -> Dict[str, List[str]]:
@@ -40,7 +38,6 @@ def increase_data(dictionnary_path: Dict[str, List[str]]) -> Dict[str, List[str]
         increase_brightness: "_bright",
         image_flip: "_flipped"
     }
-
     original_images = {classe: dictionnary_path[classe].copy() for classe in minor_classes}
 
     for classe in minor_classes:
@@ -49,7 +46,7 @@ def increase_data(dictionnary_path: Dict[str, List[str]]) -> Dict[str, List[str]
 
 
         while total_images < target_sizes[classe]:
-            for i, path_image in enumerate(original_images[classe]):
+            for _, path_image in enumerate(original_images[classe]):
                 if total_images >= target_sizes[classe]:
                     break
 
@@ -69,7 +66,6 @@ def increase_data(dictionnary_path: Dict[str, List[str]]) -> Dict[str, List[str]
                     dictionnary_images_augmented.append(path_save)
                     total_images += 1
 
-        
         dictionnary_path[classe].extend(dictionnary_images_augmented)
 
     ## verif
@@ -83,10 +79,10 @@ def increase_data(dictionnary_path: Dict[str, List[str]]) -> Dict[str, List[str]
 def apply_and_save(transformation_func, image, path_image, extension, combination=False):
     """Make transformation on the image (rotation, flip, translation, bright) and saving the new image"""
     
-    ## we try to combinate differente fonction
+    ## we try to combinate differents fonctions
     transformations = [rotation_image, translation_image, increase_brightness, image_flip]
     img_modif = image.copy()
-    number_of_modification = random.randint(2,4) ## minimum 2 transformation combination
+    number_of_modification = random.randint(2,4) ## minimum 2 transformations combination
     random_transformations = random.sample(transformations,number_of_modification)
 
     ## if we chose to make transformation combination
@@ -176,9 +172,21 @@ def preprocess_images(dictionnary_path : Dict[str, List[str]]) -> Tuple[np.ndarr
             normalized_image = normalization(resize_image)
             X.append(normalized_image)
             y.append(sentiment)
+    y_encoded = label_encoding(y)
 
-    return np.array(X), np.array(y)
+    return np.array(X), np.array(y_encoded)
 
+def label_encoding(labels: List[str])-> List[int]:
+    """convert the sentiments label into numerical values"""
+
+    numerical_sentiments = {'neutral': 0, 'angry': 1, 'happy': 2,'fear': 3
+                            , 'sad': 4, "disgust": 5, "surprise": 6 }
+    sentiments_values = []
+    for sentiment in labels:
+        valeur = numerical_sentiments[sentiment]
+        sentiments_values.append(valeur)  
+    return sentiments_values
+    
 
 def greyscaling(image : np.ndarray) -> np.ndarray:
     """Image is already in grey but has 3 canals, we only want 2-d dimensional matrix"""
