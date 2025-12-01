@@ -1,5 +1,13 @@
+# Face emotion detection
+
 Using FER-2013 dataset
 
-Process :
+Stack :
+- Backend : Python (Flask)
+- Frontend : React + Vite
 
-Generate more images using data augmentation to equilibrate the classes "disgust" : 436 and "surprise" : 3171
+
+
+
+
+
