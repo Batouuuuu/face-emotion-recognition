@@ -1,5 +1,0 @@
-tensorflow==2.10.0 ## gpu version (cudatoolkit=11.2 cudnn=8.1.0)
-ipykernel==7.0.1
-matplotlib==3.10.7
-opencv-python==4.12.0.88
-numpy==1.23.5

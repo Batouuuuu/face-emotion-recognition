@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: emotion-backend
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend:/app
+    devices:
+      - "/dev/video0:/dev/video0"   
+    restart: unless-stopped
+    environment:
+      - FLASK_ENV=development
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: emotion-frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+    restart: unless-stopped
